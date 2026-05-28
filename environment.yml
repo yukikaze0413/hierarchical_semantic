@@ -1,0 +1,29 @@
+name: hsb-eeg2text
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - scipy
+  - h5py
+  - scikit-learn
+  - pyarrow
+  - pyyaml
+  - tqdm
+  - pytest
+  - pytorch
+  - pytorch-cuda=12.1
+  - pip:
+      - mne
+      - sentence-transformers
+      - transformers
+      - accelerate
+      - bitsandbytes
+      - openai
+      - bert-score
+      - rouge-score
+      - nltk

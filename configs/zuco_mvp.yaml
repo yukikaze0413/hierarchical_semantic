@@ -1,0 +1,123 @@
+project:
+  name: hsb_zuco_mvp
+  seed: 42
+  output_dir: outputs
+
+paths:
+  raw_zuco_dir: data/raw/zuco
+  processed_zuco_dir: data/processed/zuco
+  eeg_word_dir: data/processed/zuco/eeg_word
+  taxonomy_dir: data/taxonomy
+  checkpoints_dir: outputs/checkpoints
+  decoded_dir: outputs/decoded_anchors
+  reconstructed_dir: outputs/reconstructed_sentences
+  reports_dir: outputs/reports
+  logs_dir: outputs/logs
+
+data:
+  dataset: zuco
+  vocabulary_size: 100
+  eeg_shape: [48, 8, 1]
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  min_keyword_frequency: 1
+  mock_sentences: 64
+
+preprocessing:
+  zuco_mat_mode: frequency_diff
+  zuco_frequency_suffixes: [t1, t2, a1, a2, b1, b2, g1, g2]
+  bandpass_hz: [0.5, 40.0]
+  notch_hz: 50
+  downsample_hz: 250
+  epoch_ms: [-200, 800]
+  baseline_ms: [-200, 0]
+  frequency_bands:
+    delta: [0.5, 4]
+    theta: [4, 8]
+    alpha: [8, 13]
+    beta: [13, 30]
+    low_gamma: [30, 40]
+  time_windows: 10
+  zscore_from_train_only: true
+
+taxonomy:
+  source: heuristic_wordnet_ready
+  keyword_taxonomy_csv: data/taxonomy/keyword_taxonomy.csv
+  hierarchy_edges_csv: data/taxonomy/hierarchy_edges.csv
+
+model:
+  eeg_encoder: deep4
+  embedding_dim: 256
+  dropout: 0.2
+  text_encoder:
+    backend: sentence_transformer
+    model_name: sentence-transformers/all-MiniLM-L6-v2
+    smoke_backend: hash
+  rag_encoder:
+    backend: sentence_transformer
+    model_name: sentence-transformers/all-MiniLM-L6-v2
+
+training:
+  experiment_name: zuco_mvp_deep4
+  epochs: 60
+  batch_size: 64
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  num_workers: 4
+  device: cuda
+  temperature: 0.07
+  loss_weights:
+    coarse: 0.5
+    mid: 0.7
+    fine: 1.0
+    hierarchy: 0.3
+  curriculum:
+    coarse_mid_until_epoch: 20
+    add_fine_until_epoch: 50
+  save_every_epochs: 5
+
+inference:
+  top_k: 5
+  fine_confidence_threshold: 0.3
+  rag_top_k: 5
+  rag_weights:
+    fine: 0.4
+    mid: 0.3
+    coarse: 0.1
+    semantic: 0.2
+
+llm:
+  default_backend: deepseek_api
+  output_json: true
+  temperature: 0.2
+  max_tokens: 512
+  backends:
+    deepseek_api:
+      type: openai_compatible
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      model: deepseek-v4-pro
+    deepseek_flash:
+      type: openai_compatible
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      model: deepseek-v4-flash
+    local_qwen:
+      type: transformers_local
+      model_name: Qwen/Qwen2.5-7B-Instruct
+      dtype: bfloat16
+      load_in_4bit: false
+    mock:
+      type: mock
+      model: deterministic-template
+    custom_openai:
+      type: openai_compatible
+      base_url_env: LLM_BASE_URL
+      api_key_env: LLM_API_KEY
+      model_env: LLM_MODEL
+
+storage:
+  recommended_min_gb: 200
+  comfortable_gb: 500
+  long_term_gb: 1000

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsb-eeg2text"
+version = "0.1.0"
+description = "Hierarchical Semantic Bottleneck EEG-to-Text MVP for ZuCo experiments."
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+  "numpy",
+  "pandas",
+  "scipy",
+  "h5py",
+  "scikit-learn",
+  "pyarrow",
+  "pyyaml",
+  "tqdm",
+]
+
+[project.optional-dependencies]
+train = ["torch", "sentence-transformers", "mne"]
+llm = ["openai", "transformers", "accelerate", "bitsandbytes"]
+eval = ["bert-score", "rouge-score"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
