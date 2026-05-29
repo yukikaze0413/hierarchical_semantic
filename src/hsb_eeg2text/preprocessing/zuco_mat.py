@@ -118,6 +118,14 @@ def iter_mat_files(raw_dir: str | Path) -> list[Path]:
     return sorted(Path(raw_dir).rglob("*.mat"))
 
 
+def source_scope_id(path: str | Path, raw_dir: str | Path) -> str:
+    try:
+        rel = Path(path).relative_to(Path(raw_dir))
+    except ValueError:
+        rel = Path(path).name
+    return sanitize_id(str(rel).replace(".mat", ""))
+
+
 def _todict_scipy(obj: Any) -> Any:
     if isinstance(obj, np.ndarray):
         if obj.dtype.names:
@@ -371,14 +379,17 @@ def write_parsed_outputs(config: dict[str, Any], parsed: list[ParsedWord], repor
 
 
 def preprocess_zuco_mat(config: dict[str, Any], sample_limit: int | None = None) -> dict[str, Any]:
+    from tqdm.auto import tqdm
+
     raw_dir = Path(deep_get(config, "paths.raw_zuco_dir"))
     suffixes = list(deep_get(config, "preprocessing.zuco_frequency_suffixes", ["t1", "t2", "a1", "a2", "b1", "b2", "g1", "g2"]))
     train_ratio = float(deep_get(config, "data.train_ratio", 0.8))
     val_ratio = float(deep_get(config, "data.val_ratio", 0.1))
     parsed: list[ParsedWord] = []
     file_reports = []
-    for mat_path in iter_mat_files(raw_dir):
-        subject_id = extract_subject_id(mat_path)
+    mat_files = iter_mat_files(raw_dir)
+    for mat_path in tqdm(mat_files, desc="Parsing ZuCo .mat files", unit="file"):
+        subject_id = sanitize_id(f"{source_scope_id(mat_path, raw_dir)}_{extract_subject_id(mat_path)}")
         try:
             mat, loader = load_mat_any(mat_path)
             rows, report = parse_sentence_data(mat, subject_id, suffixes, train_ratio, val_ratio, str(mat_path))
@@ -405,10 +416,11 @@ def preprocess_zuco_mat(config: dict[str, Any], sample_limit: int | None = None)
         if sample_limit and len(parsed) >= sample_limit:
             parsed = parsed[:sample_limit]
             break
+    print(f"Parsed word-level EEG samples: {len(parsed)}", flush=True)
     parsed, zscore_report = apply_train_zscore(parsed)
     report = {
         "raw_dir": str(raw_dir),
-        "mat_file_count": len(iter_mat_files(raw_dir)),
+        "mat_file_count": len(mat_files),
         "parsed_word_count": len(parsed),
         "eeg_shape": list(parsed[0].eeg.shape) if parsed else None,
         "zscore": zscore_report,

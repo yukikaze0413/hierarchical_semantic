@@ -28,6 +28,7 @@ def train(
 ) -> dict:
     import torch
     from torch.utils.data import DataLoader
+    from tqdm.auto import tqdm
 
     seed_everything(int(deep_get(config, "project.seed", 42)))
     processed_dir = Path(deep_get(config, "paths.processed_zuco_dir"))
@@ -91,11 +92,12 @@ def train(
     )
 
     history = []
-    for epoch in range(1, epochs + 1):
+    for epoch in tqdm(range(1, epochs + 1), desc="Training epochs", unit="epoch"):
         model.train()
         total_loss = 0.0
         total_items = 0
-        for batch in train_loader:
+        train_progress = tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch", leave=False)
+        for batch in train_progress:
             eeg = batch["eeg"].to(device)
             batch = {k: (v.to(device) if hasattr(v, "to") else v) for k, v in batch.items()}
             outputs = model(eeg)
@@ -115,11 +117,12 @@ def train(
             optimizer.step()
             total_loss += float(loss.detach().cpu()) * eeg.shape[0]
             total_items += eeg.shape[0]
+            train_progress.set_postfix(loss=f"{total_loss / max(total_items, 1):.4f}")
         metrics = {"epoch": epoch, "train_loss": total_loss / max(total_items, 1)}
         if val_loader:
             metrics["val_loss"] = evaluate_loss(model, val_loader, text_tables, device, temp, weights, epoch, coarse_mid_until, add_fine_until)
         history.append(metrics)
-        print(metrics)
+        print(metrics, flush=True)
 
     checkpoint = {
         "model_state_dict": model.state_dict(),
